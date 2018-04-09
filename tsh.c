@@ -164,7 +164,40 @@ int main(int argc, char **argv)
  * when we type ctrl-c (ctrl-z) at the keyboard.  
 */
 void eval(char *cmdline) 
-{
+{   
+	char *argv[MAXARGS];    /*array used to hold parsed arguments */
+ 	char buf[MAXLINE];     /*hold local copy of cmdline */
+    int bg;              /* default bg = 0 */
+	pid_t pid;
+    sigset_t mask;
+
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+
+    strcpy(buf,cmdline);
+    bg = parseline(buf,argv);
+    if(argv[0] == NULL){
+        return;
+    }
+    if(builtin_cmd(argv) == 0){
+        sigprocmask(SIG_BLOCK, &mask, NULL);  /*block SIGCHLD before fork */
+        if((pid = fork()) == 0){  /* Child process if not built_it command*/
+            sigprocmask(SIG_UNBLOCK, &mask, NULL);/*unblock SIGCHLD */
+            if(execve(argv[0],argv,environ) < 0){
+                printf("%s: Command not found\n",argv[0]);
+                exit(0);
+            }    
+        }
+        /*Parent process*/
+        addjob(jobs,pid,(bg)?BG:FG,buf);
+        sigprocmask(SIG_UNBLOCK, &mask, NULL);/*unblock SIGCHLD */
+        if(!bg){
+            waitfg(pid);   
+        }
+        else{
+            printf("%d %s",pid,cmdline);
+        }
+    }
     return;
 }
 
@@ -231,6 +264,15 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
+	char *buf = argv[0];
+	if(strcmp(buf,"quit")==0){
+        exit(0);
+    }
+
+/*    else if(strcmp(argv[0],"jobs")==0){;}*/
+/*    else if(strcmp(argv[0],"bg")==0){;}*/
+/*    else if(strcmp(argv[0],"fg")==0){;}*/
+/*    else{;}*/
     return 0;     /* not a builtin command */
 }
 
@@ -247,6 +289,9 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    while(pid2jid(pid)){
+        sleep(1);
+    }
     return;
 }
 
@@ -263,6 +308,10 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
+    pid_t pid;
+    while((pid = waitpid(-1,NULL,0))>0){
+        deletejob(jobs,pid);
+    }
     return;
 }
 
