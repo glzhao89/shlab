@@ -347,7 +347,7 @@ void do_bgfg(char **argv)
     }
 
     if(strcmp(cmd,"bg")==0){
-        if(kill(job->pid,SIGCONT) <0){  /*send SIGCONT and run job in background */
+        if(kill(-(job->pid),SIGCONT) <0){  /*send SIGCONT and run job in background */
             unix_error("SIGCONT");    
         }
         job->state = BG;
@@ -355,7 +355,7 @@ void do_bgfg(char **argv)
 
     }
     else if(strcmp(cmd,"fg")==0){
-        if(kill(job->pid,SIGCONT) <0){  /*send SIGCONT and run job in foreground */
+        if(kill(-(job->pid),SIGCONT) <0){  /*send SIGCONT and run job in foreground */
             unix_error("SIGCONT");    
         }
         job->state = FG; 
